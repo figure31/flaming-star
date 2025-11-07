@@ -1,0 +1,1179 @@
+@font-face {
+    font-family: 'ProtoMono';
+    src: url('ProtoMono-Medium.otf') format('opentype');
+    font-weight: 500;
+    font-style: normal;
+}
+
+:root {
+    --blue: #000000;
+    --white: #f3f3f3;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    width: 100%;
+    height: 100vh; /* Fallback for older browsers */
+    height: 100dvh; /* Dynamic viewport height - adjusts for mobile browser UI */
+    overflow: hidden;
+    background: var(--white);
+    font-family: 'ProtoMono', monospace;
+    font-size: 12px;
+    color: var(--blue);
+}
+
+#container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: -webkit-crisp-edges;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+/* UI Overlay */
+#ui-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+#ui-overlay > * {
+    pointer-events: auto;
+}
+
+/* Top Margin UI */
+#top-ui {
+    position: absolute;
+    top: env(safe-area-inset-top, 0); /* Accounts for notch on iOS */
+    left: 0;
+    width: 100%;
+    height: 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 10px;
+    padding-left: max(10px, env(safe-area-inset-left, 10px)); /* Side safe areas */
+    padding-right: max(10px, env(safe-area-inset-right, 10px));
+    font-size: 12px;
+    line-height: 1;
+}
+
+#top-left {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+#top-center {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+}
+
+#music-player {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#song-title-container {
+    width: 120px;
+    overflow: hidden;
+    white-space: nowrap;
+    position: relative;
+}
+
+#song-title {
+    display: inline-block;
+    padding-right: 50px;
+    animation: scroll-text 15s linear infinite;
+}
+
+@keyframes scroll-text {
+    0%, 20% {
+        transform: translateX(0);
+    }
+    100% {
+        transform: translateX(-100%);
+    }
+}
+
+#play-pause-btn {
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    line-height: 1;
+    border: none;
+    background: transparent;
+    color: var(--blue);
+    cursor: pointer;
+    transform: translateY(-5%);
+}
+
+#play-pause-btn:hover {
+    background: transparent;
+    color: var(--blue);
+    opacity: 0.7;
+}
+
+#top-right {
+    display: flex;
+    align-items: center;
+}
+
+/* Top right buttons container */
+#top-right {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-left: auto;
+}
+
+/* Show All Transfers Button */
+#show-all-transfers-btn {
+    padding: 0 8px;
+    border: 1px solid var(--blue);
+    background: var(--white);
+    color: var(--blue);
+    cursor: pointer;
+    font-family: 'ProtoMono', monospace;
+    font-size: 12px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    border-right: none;
+}
+
+#show-all-transfers-btn:hover {
+    background: var(--blue);
+    color: var(--white);
+    border: 1px solid var(--blue);
+    border-right: none;
+}
+
+/* View Toggle Button (transfers/mints) */
+#view-toggle-btn {
+    padding: 0 8px;
+    border: 1px solid var(--blue);
+    background: var(--blue);
+    color: var(--white);
+    cursor: pointer;
+    font-family: 'ProtoMono', monospace;
+    font-size: 12px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    margin-right: -10px;
+}
+
+#view-toggle-btn:hover {
+    background: var(--white);
+    color: var(--blue);
+    border: 1px solid var(--blue);
+}
+
+/* Bottom Margin UI - Full Bar Design */
+#bottom-ui {
+    position: absolute;
+    bottom: env(safe-area-inset-bottom, 0);
+    left: 0;
+    width: 100%;
+    height: 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: stretch;
+    padding: 0;
+    font-size: 12px;
+    line-height: 1;
+    background: var(--white);
+    border: 1px solid var(--blue);
+}
+
+#bottom-left {
+    display: flex;
+    gap: 0;
+    align-items: stretch;
+}
+
+#bottom-left > *:first-child {
+    border-left: none;
+}
+
+#bottom-left > *:last-child {
+    border-right: 1px solid var(--blue);
+}
+
+#bottom-center {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 0;
+    align-items: stretch;
+    height: 100%;
+}
+
+#bottom-right {
+    display: flex;
+    gap: 0;
+    align-items: stretch;
+}
+
+#bottom-right > *:last-child {
+    border-right: none;
+}
+
+/* No gap between connect and mint buttons */
+
+/* Ensure dividers on right side of certain buttons */
+#claim-artwork-btn,
+#connect-btn {
+    border-right: 1px solid var(--blue);
+}
+
+#claim-artwork-btn:hover,
+#connect-btn:hover {
+    border-right: 1px solid var(--blue);
+}
+
+/* Buttons - Full Height Sections */
+button {
+    font-family: 'ProtoMono', monospace;
+    font-size: 12px;
+    background: var(--white);
+    border: none;
+    border-left: 1px solid var(--blue);
+    padding: 0 8px;
+    cursor: pointer;
+    color: var(--blue);
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+
+button:hover {
+    background: var(--blue);
+    color: var(--white);
+}
+
+.link-button {
+    font-family: 'ProtoMono', monospace;
+    font-size: 12px;
+    color: var(--blue);
+    text-decoration: none;
+    border: none;
+    border-left: 1px solid var(--blue);
+    padding: 0 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    height: 100%;
+}
+
+.link-button:hover {
+    background: var(--blue);
+    color: var(--white);
+}
+
+#wallet-info {
+    display: none;
+    gap: 0;
+    align-items: stretch;
+    height: 100%;
+}
+
+#wallet-info.connected {
+    display: flex;
+}
+
+#wallet-info > * {
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    border-left: 1px solid var(--blue);
+    height: 100%;
+}
+
+#connect-btn.connected {
+    display: none;
+}
+
+#highlight-btn {
+    display: none;
+    background: var(--white);
+    color: var(--blue);
+}
+
+#highlight-btn:hover {
+    background: var(--blue);
+    color: var(--white);
+}
+
+/* Connect button styling */
+#connect-btn {
+    background: var(--blue);
+    color: var(--white);
+}
+
+#connect-btn:hover {
+    background: var(--white);
+    color: var(--blue);
+}
+
+/* Mint button - default inverse styling (until connected) */
+#mint-btn {
+    background: var(--white);
+    color: var(--blue);
+}
+
+#mint-btn:hover {
+    background: var(--blue);
+    color: var(--white);
+}
+
+/* Mint button - normal styling when wallet connected */
+#wallet-info.connected ~ #mint-btn {
+    background: var(--blue);
+    color: var(--white);
+}
+
+#wallet-info.connected ~ #mint-btn:hover {
+    background: var(--white);
+    color: var(--blue);
+}
+
+/* About Modal */
+#about-modal {
+    position: absolute;
+    top: calc(30px + env(safe-area-inset-top, 0px));
+    left: 0;
+    width: 100%;
+    height: calc(100% - 60px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    background: var(--white);
+    display: none;
+    padding: 40px;
+    padding-left: max(40px, env(safe-area-inset-left, 40px));
+    padding-right: max(40px, env(safe-area-inset-right, 40px));
+    overflow-y: auto;
+}
+
+#about-modal.active {
+    display: block;
+}
+
+#about-modal h2 {
+    margin-bottom: 20px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+#about-modal p {
+    font-size: 12px;
+    line-height: 1.6;
+    margin-bottom: 15px;
+}
+
+#about-modal p.section-title {
+    margin-bottom: 7.5px;
+}
+
+#about-modal a {
+    color: var(--blue);
+}
+
+#about-modal a:visited {
+    color: var(--blue);
+}
+
+#close-about {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: auto;
+    height: auto;
+    padding: 1px 4px;
+    border: 1px solid var(--blue);
+    background: var(--white);
+    color: var(--blue);
+}
+
+#close-about:hover {
+    background: var(--blue);
+    color: var(--white);
+    border: 1px solid var(--blue);
+}
+
+/* Mint Modal */
+#mint-modal {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 400px;
+    background: var(--white);
+    border: 1px solid var(--blue);
+    padding: 25px;
+    display: none;
+    z-index: 1000;
+    color: var(--blue);
+}
+
+#mint-modal.active {
+    display: block;
+}
+
+#close-mint {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: auto;
+    height: auto;
+    font-size: 12px;
+    background: var(--white);
+    color: var(--blue);
+    border: 1px solid var(--blue);
+    padding: 1px 4px;
+    cursor: pointer;
+    font-family: 'ProtoMono', monospace;
+}
+
+#close-mint:hover {
+    background: var(--blue);
+    color: var(--white);
+    border: 1px solid var(--blue);
+}
+
+#mint-limit-display {
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 12px;
+    color: var(--blue);
+}
+
+#mint-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 20px;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.mint-option-btn {
+    padding: 15px 10px;
+    background: var(--white);
+    border: 1px solid var(--blue);
+    cursor: pointer;
+    color: var(--blue);
+    font-family: 'ProtoMono', monospace;
+    font-size: 12px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.mint-option-btn:hover {
+    background: var(--blue);
+    color: var(--white);
+    border: 1px solid var(--blue);
+}
+
+.mint-title {
+    font-size: 12px;
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+
+.mint-amount {
+    font-size: 12px;
+    margin-bottom: 6px;
+}
+
+.mint-cost {
+    font-size: 12px;
+}
+
+#mint-status {
+    text-align: center;
+    font-size: 12px;
+    min-height: 14px;
+    color: var(--blue);
+}
+
+/* Artwork Gallery Modal */
+#artwork-modal {
+    position: absolute;
+    top: calc(30px + env(safe-area-inset-top, 0px));
+    left: 0;
+    width: 100%;
+    height: calc(100% - 60px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    background: var(--white);
+    display: none;
+    padding: 40px;
+    padding-left: max(40px, env(safe-area-inset-left, 40px));
+    padding-right: max(40px, env(safe-area-inset-right, 40px));
+    overflow-y: auto;
+}
+
+#artwork-modal.active {
+    display: block;
+}
+
+#artwork-modal h2 {
+    margin-bottom: 30px;
+    font-size: 12px;
+    font-weight: 500;
+    text-align: center;
+}
+
+#close-artwork {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: auto;
+    height: auto;
+    padding: 1px 4px;
+    border: 1px solid var(--blue);
+    background: var(--white);
+    color: var(--blue);
+}
+
+#close-artwork:hover {
+    background: var(--blue);
+    color: var(--white);
+    border: 1px solid var(--blue);
+}
+
+#artwork-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.nft-box {
+    border: 1px solid var(--blue);
+    background: var(--white);
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.nft-artwork {
+    width: 100%;
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--white);
+}
+
+.nft-artwork svg {
+    width: 100%;
+    height: 100%;
+}
+
+.nft-artwork.unminted {
+    font-size: 12px;
+    color: var(--blue);
+    border: 1px solid var(--blue);
+}
+
+.nft-traits {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 12px;
+}
+
+.nft-trait {
+    display: flex;
+    justify-content: space-between;
+}
+
+.trait-label {
+    font-weight: 500;
+}
+
+.trait-value {
+    word-break: break-all;
+}
+
+.nft-view-btn {
+    width: 100%;
+    padding: 4px;
+    font-size: 12px;
+    border: 1px solid var(--blue);
+    background: var(--white);
+    color: var(--blue);
+    height: auto;
+}
+
+.nft-view-btn:hover {
+    background: var(--blue);
+    color: var(--white);
+}
+
+.nft-view-btn.mint-style {
+    background: var(--blue);
+    color: var(--white);
+}
+
+.nft-view-btn.mint-style:hover {
+    background: var(--white);
+    color: var(--blue);
+}
+
+.nft-view-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: var(--white);
+    color: var(--blue);
+}
+
+/* Amplify Modal */
+#amplify-modal {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 550px;
+    max-width: 90%;
+    background: var(--white);
+    border: 1px solid var(--blue);
+    padding: 20px 20px 10px 20px; /* top, right, bottom, left */
+    display: none;
+    z-index: 1000;
+    color: var(--blue);
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+#amplify-modal.active {
+    display: block;
+}
+
+#amplify-modal h2 {
+    font-size: 12px;
+    font-weight: 500;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+#amplify-modal p {
+    font-size: 12px;
+    line-height: 1.6;
+    margin-bottom: 15px;
+}
+
+#amplify-modal ul {
+    font-size: 12px;
+    line-height: 1.8;
+    margin: 10px 0;
+    padding-left: 20px;
+}
+
+#amplify-modal ul li {
+    margin-bottom: 5px;
+}
+
+#amplify-modal .info-box {
+    background: #f0f7ff;
+    border-left: 3px solid var(--blue);
+    padding: 12px;
+    margin: 15px 0;
+    font-size: 12px;
+}
+
+#amplify-modal .info-box strong {
+    display: block;
+    margin-bottom: 5px;
+}
+
+#amplify-modal .info-box p {
+    margin-bottom: 0;
+}
+
+#amplify-status {
+    font-size: 12px;
+    margin: 15px 0 10px 0; /* top, right, bottom, left */
+    min-height: 20px;
+}
+
+#amplify-result {
+    font-size: 12px;
+    margin: 0;
+    margin-bottom: 10px;
+    min-height: 0;
+}
+
+#amplify-result a {
+    color: var(--blue);
+    text-decoration: underline;
+}
+
+.amplify-link {
+    color: var(--blue);
+    text-decoration: underline;
+}
+
+.amplify-link:hover {
+    opacity: 0.7;
+}
+
+#amplify-again-btn:hover {
+    background: white !important;
+    color: var(--blue) !important;
+}
+
+#amplify-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 10px;
+    margin-bottom: 0;
+}
+
+#amplify-buttons button {
+    padding: 5px 10px;
+    font-size: 12px;
+    height: auto;
+    border: 1px solid var(--blue);
+}
+
+#cancel-amplify-btn {
+    background: var(--white);
+    color: var(--blue);
+}
+
+#cancel-amplify-btn:hover {
+    background: var(--blue);
+    color: var(--white);
+}
+
+#proceed-amplify-btn {
+    background: var(--blue);
+    color: var(--white);
+}
+
+#proceed-amplify-btn:hover {
+    background: var(--white);
+    color: var(--blue);
+}
+
+#cancel-amplify-btn:disabled,
+#proceed-amplify-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#cancel-amplify-btn:disabled:hover,
+#proceed-amplify-btn:disabled:hover {
+    background: var(--blue);
+    color: var(--white);
+}
+
+#proceed-amplify-btn:disabled:hover {
+    background: var(--blue);
+    color: var(--white);
+}
+
+#close-amplify {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: auto;
+    height: auto;
+    padding: 1px 4px;
+    border: 1px solid var(--blue);
+    background: var(--white);
+    color: var(--blue);
+}
+
+#close-amplify:hover {
+    background: var(--blue);
+    color: var(--white);
+    border: 1px solid var(--blue);
+}
+
+/* Buy Total NFT Modal */
+#buy-total-modal {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 500px;
+    max-width: 90%;
+    background: var(--white);
+    border: 2px solid var(--blue);
+    padding: 30px;
+    display: none;
+    z-index: 1000;
+    color: var(--blue);
+}
+
+#buy-total-modal.active {
+    display: block;
+}
+
+#close-buy-total {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: auto;
+    height: auto;
+    font-size: 12px;
+    padding: 1px 4px;
+    border: 1px solid var(--blue);
+    background: var(--white);
+    color: var(--blue);
+}
+
+#close-buy-total:hover {
+    background: var(--blue);
+    color: var(--white);
+    border: 1px solid var(--blue);
+}
+
+#buy-total-content p {
+    font-size: 12px;
+    line-height: 1.6;
+    margin-bottom: 15px;
+}
+
+#buy-total-buttons {
+    display: flex;
+    gap: 15px;
+    margin-top: 20px;
+    margin-bottom: 15px;
+    justify-content: center;
+}
+
+#buy-total-buttons .mint-option-btn {
+    flex: 1;
+    max-width: 240px;
+    background: var(--blue);
+    color: var(--white);
+}
+
+#buy-total-buttons .mint-option-btn:hover {
+    background: var(--white);
+    color: var(--blue);
+}
+
+#buy-total-status {
+    text-align: center;
+    font-size: 12px;
+    min-height: 14px;
+    color: var(--blue);
+}
+
+#buy-total-btn {
+    background: var(--blue);
+    color: var(--white);
+}
+
+#buy-total-btn:hover {
+    background: var(--white);
+    color: var(--blue);
+}
+
+/* ============================================ */
+/* MOBILE RESPONSIVE STYLES */
+/* ============================================ */
+
+@media (max-width: 768px) {
+    /* Reduce font size to 10px on mobile for all elements */
+    body {
+        font-size: 10px;
+    }
+
+    button {
+        font-size: 10px;
+    }
+
+    .link-button {
+        font-size: 10px;
+    }
+
+    #top-ui,
+    #bottom-ui,
+    #about-modal h2,
+    #about-modal p,
+    #close-mint,
+    #mint-limit-display,
+    .mint-option-btn,
+    .mint-title,
+    .mint-amount,
+    .mint-cost,
+    #mint-status,
+    #artwork-modal h2,
+    .nft-traits,
+    .nft-view-btn,
+    .nft-artwork.unminted,
+    #play-pause-btn {
+        font-size: 10px;
+    }
+
+    /* Hide extra counters on mobile - only show total mint counter */
+    #colors-counter,
+    #value-counter,
+    #minters-counter {
+        display: none;
+    }
+
+    /* Hide buy total button on mobile (desktop only) */
+    #buy-total-btn {
+        display: none !important;
+    }
+
+    /* Hide song title on mobile - only show play/pause button */
+    #song-title-container {
+        display: none;
+    }
+
+    /* Show all transfers button - hide on mobile */
+    #show-all-transfers-btn {
+        display: none !important;
+    }
+
+    /* View toggle button responsive sizing for mobile */
+    #view-toggle-btn {
+        font-size: 10px;
+        padding: 0 6px;
+        height: 30px;
+        margin-right: -10px;
+    }
+
+    /* Add margin to top-right on mobile to prevent overlap with music player */
+    #top-right {
+        margin-right: 40px;
+    }
+
+    /* Reposition music player to top-right on mobile */
+    #top-center {
+        position: absolute;
+        top: env(safe-area-inset-top, 0);
+        right: 10px;
+        left: auto;
+        transform: none;
+        height: 30px;
+        display: flex;
+        align-items: center;
+    }
+
+    #music-player {
+        justify-content: flex-end;
+    }
+
+    /* Hide USDC, BMOON balance, wallet address, and highlight button on mobile to save space */
+    #wallet-usdc,
+    #wallet-bmoon,
+    #wallet-address,
+    #highlight-btn {
+        display: none !important;
+    }
+
+    /* Hide contract links on mobile */
+    #contract-erc20-link,
+    #contract-erc721-link,
+    #contract-total-link {
+        display: none;
+    }
+
+    /* Hide mint button on mobile by default */
+    #mint-btn {
+        display: none !important;
+    }
+
+    /* Show mint button when wallet is connected on mobile */
+    #wallet-info.connected ~ #mint-btn {
+        display: inline-flex !important;
+    }
+
+    /* Hide center section on mobile (claim button moved to left) */
+    #bottom-center {
+        display: none;
+    }
+
+    #bottom-left {
+        order: 0;
+        gap: 0;
+    }
+
+    #bottom-right {
+        order: 2;
+        margin-left: auto;
+    }
+
+    /* When not connected, move connect button to far left */
+    #connect-btn:not(.connected) {
+        order: -1;
+        margin-right: 0;
+        margin-left: 0;
+        border-left: none;
+    }
+
+    /* Ensure about button has right border and no left border on mobile */
+    #about-btn {
+        border-right: 1px solid var(--blue);
+        border-left: none;
+    }
+
+    /* Remove left border from view/claim button on mobile to avoid double border */
+    #claim-artwork-btn {
+        border-left: none;
+    }
+
+    /* Remove right border from mint button on mobile, keep left */
+    #mint-btn {
+        border-right: none;
+        border-left: 1px solid var(--blue);
+    }
+
+    /* Increase touch target sizes for buttons */
+    button {
+        padding: 0 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        border-bottom: none;
+        border-top: none;
+    }
+
+    .link-button {
+        padding: 0 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+    }
+
+    #play-pause-btn {
+        width: 44px;
+        height: 44px;
+        min-height: 44px;
+    }
+
+    /* Make mint modal responsive and compact */
+    #mint-modal {
+        width: 75%;
+        max-width: 300px;
+        padding: 15px;
+    }
+
+    #mint-limit-display {
+        margin-bottom: 15px;
+    }
+
+    #mint-options {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 15px;
+        padding: 0;
+        margin-left: 0;
+        margin-right: 0;
+        max-width: 100%;
+    }
+
+    .mint-option-btn {
+        padding: 10px 8px;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 10px;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .mint-title,
+    .mint-amount,
+    .mint-cost {
+        margin-bottom: 0;
+        white-space: nowrap;
+        text-align: center;
+    }
+
+    .mint-title {
+        margin-bottom: 4px;
+    }
+
+    .mint-amount {
+        margin-bottom: 4px;
+    }
+
+    /* Reduce modal padding on mobile */
+    #about-modal {
+        padding: 20px;
+        padding-left: max(20px, env(safe-area-inset-left, 20px));
+        padding-right: max(20px, env(safe-area-inset-right, 20px));
+    }
+
+    #artwork-modal {
+        padding: 20px;
+        padding-left: max(20px, env(safe-area-inset-left, 20px));
+        padding-right: max(20px, env(safe-area-inset-right, 20px));
+    }
+
+    /* Make close buttons consistent with mint modal on mobile */
+    #close-about,
+    #close-artwork {
+        padding: 6px;
+        font-size: 10px;
+    }
+
+    /* Adjust UI bar spacing */
+    #top-left {
+        gap: 10px;
+    }
+
+    #bottom-left {
+        gap: 0;
+    }
+
+    #bottom-right {
+        gap: 0;
+    }
+
+    /* Reduce wallet info gap */
+    #wallet-info {
+        gap: 0;
+    }
+}

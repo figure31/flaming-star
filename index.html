@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Flaming Star</title>
+
+    <!-- Favicon -->
+    <link rel="icon" href="flamingstar_favicon.png">
+
+    <!-- Open Graph (works for X, Discord, Facebook, LinkedIn, etc.) -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://flamingstar.figure31.com/">
+    <meta property="og:title" content="Flaming Star">
+    <meta property="og:description" content="Tokenized blockchain colour generation">
+    <meta property="og:image" content="https://flamingstar.figure31.com/flamingstar_card.png">
+    <meta name="twitter:card" content="summary_large_image">
+
+    <link rel="stylesheet" href="style.css?v=2">
+</head>
+<body>
+    <div id="container">
+        <canvas id="canvas"></canvas>
+
+        <div id="ui-overlay">
+            <!-- Top UI -->
+            <div id="top-ui">
+                <div id="top-left">
+                    <div id="progress-counter">loading...</div>
+                    <div id="colors-counter">loading...</div>
+                    <div id="value-counter">loading...</div>
+                    <div id="minters-counter">loading...</div>
+                </div>
+                <div id="top-center">
+                    <div id="music-player">
+                        <div id="song-title-container">
+                            <div id="song-title">Flaming Star - Elvis Presley</div>
+                        </div>
+                        <button id="play-pause-btn">◼</button>
+                    </div>
+                </div>
+                <div id="top-right">
+                    <button id="show-all-transfers-btn" style="display: none;">show all</button>
+                    <button id="view-toggle-btn">transfers</button>
+                </div>
+            </div>
+
+            <!-- Bottom UI -->
+            <div id="bottom-ui">
+                <div id="bottom-left">
+                    <button id="about-btn">about</button>
+                    <a id="contract-erc20-link" href="#" class="link-button" target="_blank">contract erc20</a>
+                    <a id="contract-erc721-link" href="#" class="link-button" target="_blank">contract erc721</a>
+                    <button id="claim-artwork-btn">view/claim NFT</button>
+                </div>
+                <div id="bottom-center">
+                </div>
+                <div id="bottom-right">
+                    <button id="connect-btn">connect</button>
+                    <div id="wallet-info">
+                        <span id="wallet-minted">0 $BLUE minted</span>
+                        <button id="highlight-btn">highlight</button>
+                        <span id="wallet-bmoon">0 $BMOON</span>
+                        <span id="wallet-usdc">0 USDC</span>
+                        <span id="wallet-address">0x0000...0000</span>
+                    </div>
+                    <button id="mint-btn">mint</button>
+                </div>
+            </div>
+
+            <!-- About Modal -->
+            <div id="about-modal">
+                <button id="close-about">x</button>
+                <p class="section-title">Created by <a href="https://x.com/figure31_" target="_blank" style="text-decoration: underline;">figure31</a>, 2025</p>
+
+                <p>FLAMING STAR, $FSTAR (ERC20)<br>
+                Supply: 666,666,666,666 (3.3% AA)<br>
+                Mint: Base, public, on-chain,<br>
+                0.66 USDC or 4,444 $BMOON per lot of 3,333,333 $FSTAR, 100,000 lots available (50% of supply)</p>
+
+                <p>66% of the mint revenue and the remaining 50% of the supply will be placed in a Uniswap V4 pool. The pool will use a custom hook swap fee of 6%. Fees earned in $FSTAR are burned. USDC fees are distributed to ERC-721 (NFT) holders and the artist.</p>
+
+                <p>FLAMING STAR, $FSTAR (ERC721)<br>
+                Supply: 33 (+6 AP)<br>
+                Mint: Base, available only to $FSTAR owners, on-chain<br>
+                666,666,666 $FSTAR per NFT (0.1% of supply)<br>
+                Metadata: on-chain, dynamic</p>
+
+                <p>***</p>
+
+                <!-- <img src="flamingstar_grids.svg" alt="Flaming Star Grids" style="width: 900px; height: auto; image-rendering: pixelated; image-rendering: -moz-crisp-edges; image-rendering: crisp-edges;"> -->
+                <p>Flaming Star ($FSTAR) is a dual ERC20-ERC721 release, a larger-scale suite to <a href="https://bluemoon.figure31.com/" target="_blank" style="text-decoration: underline;">Blue Moon</a>. Similar to its predecessor, Flaming Star is an artwork deployed on multiple fronts.</p>
+
+                <p>The token generates colour events during mint and transfer transactions. Mints create a fixed 100,000-cell grid visible on the homepage. Transfers populate two canvases: a live 3,000-cell grid on the transfers page, and a perpetually expanding canvas on the show all tab. These transfer colour generation events can be amplified with the help of a special contract that generates 33 mathematically random addresses and sends each of them 1 $FSTAR token, all within a single transaction (see the "Transfers" page and the "Amplify" button).</p>
+
+                <p>Owners of $FSTAR tokens can also claim NFTs. The contract generates entirely on-chain dynamic art (base64 SVG). The artworks are 11 x 11 grids of 121 hues. The owner's address and the latest mined block are used as seeds. Every time the artworks are generated via the contract's read function, the outputs change. Owners of these NFTs receive 50% of the USDC fees from the token pool. The pool utilizes a <a href="https://docs.uniswap.org/contracts/v4/concepts/hooks" target="_blank" style="text-decoration: underline;">custom hook</a> that automatically redistributes fees to all owners when the DistributeFees function is used.</p>
+
+                <p>Both ERC20 and ERC721 contracts utilize the same HSL colour range, inspired by the <a href="https://homepages.uc.edu/~hansonmm/ASTRO/LECTURENOTES/W07/Stars/Page3.html" target="_blank" style="text-decoration: underline;">OBAFGKM</a> spectral types of stellar temperatures. All colours generated by the contracts are derived from seven primary hues.</p>
+
+                <p>***</p>
+
+                <p class="section-title">After colours and subjectivity</p>
+
+                <p>Where Piet Mondrian sought to minimize subjectivity to achieve universal truth, Gerhard Richter eliminated it through randomness and proxies; Flaming Star displaces it into system architecture. Authorship moves from composition to participative system design, from making images to making image-generating systems bounded by self-referential parameters and network activity. What changes when mid-century painting's rejection of compositional intent meets the infrastructural logic of asset creation, transfer, and infinitely expanding networks?</p>
+
+                <p class="section-title">Disinterested Participants</p>
+
+                <p>Flaming Star is perpetually expanding. It offers simultaneous views: a fixed grid of 100,000 mint events, another that expands with transfers, and other smaller canvases that have no fixed rendered state. Scale is no longer determined by human dimensions but by participation, while form is rendered by the latest network state.</p>
+
+                <p>Following Blue Moon, Flaming Star uses the blockchain as both a generative system and an infrastructure for creative participation. Once again, colour is treated as a construction material. Transactions emit color events which are then indexed and added to the grids. What appears is a constellation: individuals and their actions written in canvas-time. A history with no narrative, a landscape of logs. The eye is restless across the grids. No individual cell commands focus. Patterns emerge then diffuse into the scale of the whole. All stand as equals. Stars without gravity.</p>
+
+                <p>Collectors can perform both voluntary and involuntary creative acts: token creation and transfers. These are the basic primitives of distributed ledgers, which can be indexed and amplified. Still, addresses don't represent, hashes don't symbolize, gas spent doesn't underline desires, and value doesn't change meaning. Together, they draw a star map with no legend or borders, a heatmap of events that hold no meaning beyond their occurrence. All we can observe is a growing history of events.</p>
+
+                <p>***</p>
+
+                <img src="flamingstar_stars.png" alt="Stellar spectral types" style="width: 300px; height: auto; image-rendering: pixelated; image-rendering: -moz-crisp-edges; image-rendering: crisp-edges;">
+                <p style="margin-top: 1.15em;">1896<br>
+                Annie J. Cannon, an assistant at the Harvard Observatory, defines seven star types (OBAFGKM) and their spectral temperatures.<br></p>
+
+                <img src="flamingstar_piet.png" alt="Piet Mondrian Composition with Grid IX" style="width: 300px; height: auto; image-rendering: pixelated; image-rendering: -moz-crisp-edges; image-rendering: crisp-edges;">
+                <p style="margin-top: 1.15em;">1919<br>
+                Piet Mondrian paints Composition with Grid IX. A grid of colours, contrast and empty space, meticulously arranged to create a harmonious visual experience. The neoplasticist's practice aimed to evoke abstract universal truths. The prominent use of yellow was intended to evoke a spiritual sense of light. A couple of years earlier, he wrote, "Although I was thoroughly conscious that we can never be absolutely objective, I felt that one can become less and less subjective, until the subjective no longer predominates in one's work. [...] Observing sea, sky and stars, I sought to indicate their plastic function".<br></p>
+
+                <img src="flamingstar_elvis.png" alt="Elvis Presley Flaming Star" style="width: 300px; height: auto; image-rendering: pixelated; image-rendering: -moz-crisp-edges; image-rendering: crisp-edges;">
+                <p style="margin-top: 1.15em;">1968<br>
+                Elvis Presley released "Flaming Star" and starred in the movie of the same name.<br></p>
+
+                <img src="flamingstar_richter.png" alt="Gerhard Richter Colour Charts" style="width: 300px; height: auto; image-rendering: pixelated; image-rendering: -moz-crisp-edges; image-rendering: crisp-edges;">
+                <p style="margin-top: 1.15em;">1974<br>
+                In the 60s, Gerhard Richter began working on the Colour Charts series, a systematic grid exploration of colour liberated from compositional intent. He collected samples of commercial paint, assigned numbers to them, placed them in a box, and drew at random. In 1974, this practice culminated in large canvases of thousands of colours. Half a century later, Benjamin H.D. Buchloh wrote about the series: "we encounter a difficult synthesis of abstraction's continuous shifting between [...] allegorical iteration and parodic repetition." A year later, Mark Godfrey added: "Richter replaces the idea of careful composition with one of randomness, as if admitting that the painter's historical role (for instance, judging color arrangements) are irrelevant, and that now a mathematical system and some studio assistants can generate a canvas instead."</p>
+
+                <p>***</p>
+
+                <p class="section-title">Minting the ERC20</p>
+
+                <p>Set your network on Base mainnet. Connect your wallet with the button in the bottom right corner then click the mint button next to it. You must first approve the contract to spend your USDC, then you can mint at will. The minting process voluntarily requires collectors to spam the mint function and witness the growth of the collective artwork. The canvas auto-refreshes every couple of seconds to display new mints. You can highlight your mints on the canvas with the "highlight" button. Do not send USDC directly to the contract. No refunds.</p>
+
+                <p class="section-title">Minting the ERC721</p>
+
+                <p>You need at least 666,666,666 $FSTAR (0.1% of the supply) to mint an NFT. Click on the view/claim NFT button. The page displays all 39 NFTs, minted or not. Scroll down to find unminted ones and click the "claim/mint" button. You will first need to approve the NFT contract to transfer your $FSTAR, then click again to mint. The page will refresh and display your newly minted asset. Do not send tokens directly to the contract. No refunds.</p>
+
+                <p class="section-title">If you prefer not to use the frontend, you can interact with the contracts directly via BaseScan:</p>
+
+                <p><a id="usdc-contract-link" href="#" target="_blank" style="text-decoration: underline;">USDC</a> (approve the $FSTAR contract to spend up to 1.98 USDC for max mint)<br>
+                <a id="fstar-erc20-link" href="#" target="_blank" style="text-decoration: underline;">$FSTAR ERC20</a> (use the mint write function and input either 1 or 8 for lot size)<br>
+                <a id="fstar-erc721-link" href="#" target="_blank" style="text-decoration: underline;">$FSTAR ERC721</a> (first, approve the ERC721 contract to spend 666,666,666 $FSTAR on the ERC20 contract, second, use the mint function)<br>
+                <a id="hook-contract-link" href="#" target="_blank" style="text-decoration: underline;">Hook</a> (use the DistributeFees function to distribute fees to NFT holders)</p>
+
+            </div>
+
+            <!-- Mint Modal -->
+            <div id="mint-modal">
+                <button id="close-mint">x</button>
+                <div id="mint-limit-display">Loading...</div>
+                <div id="mint-options">
+                    <button id="mint-usdc-1-btn" class="mint-option-btn">
+                        <div class="mint-title">mint 1 lot</div>
+                        <div class="mint-amount">...</div>
+                        <div class="mint-cost">...</div>
+                    </button>
+                    <button id="mint-usdc-7-btn" class="mint-option-btn">
+                        <div class="mint-title">mint 7 lots</div>
+                        <div class="mint-amount">...</div>
+                        <div class="mint-cost">...</div>
+                    </button>
+                    <button id="mint-bmoon-1-btn" class="mint-option-btn">
+                        <div class="mint-title">mint 1 lot</div>
+                        <div class="mint-amount">...</div>
+                        <div class="mint-cost">...</div>
+                    </button>
+                    <button id="mint-bmoon-7-btn" class="mint-option-btn">
+                        <div class="mint-title">mint 7 lots</div>
+                        <div class="mint-amount">...</div>
+                        <div class="mint-cost">...</div>
+                    </button>
+                </div>
+                <div id="mint-status"></div>
+            </div>
+
+            <!-- Artwork Gallery Modal -->
+            <div id="artwork-modal">
+                <button id="close-artwork">x</button>
+                <h2></h2>
+                <div id="artwork-grid"></div>
+            </div>
+
+            <!-- Amplify Modal -->
+            <div id="amplify-modal">
+                <button id="close-amplify">x</button>
+
+                <div id="amplify-explanation">
+                    <p>$FSTAR tokens generate colours as on-chain events each time they are transferred. This page displays the last 3000 transfers. Transfers initiated by the same address within a single transaction exhibit the same hue.</p>
+
+                    <p>You can contribute to the ever-growing collective transfers canvas by using the <span id="amplifier-contract-link"></span>. It mathematically finds 33 random addresses and sends each of them 1 $FSTAR. Shooting stars in the void. Your contribution is visible through the trail it leaves, distinct from regular transfers that emit single colours.</p>
+
+                    <div id="amplify-status">
+                        <p>Contract balance: checking...<br>
+                        Amplifications remaining: checking...</p>
+                    </div>
+                </div>
+
+                <div id="amplify-buttons">
+                    <button id="cancel-amplify-btn" disabled>Cancel</button>
+                    <button id="proceed-amplify-btn" disabled>Proceed</button>
+                </div>
+
+                <div id="amplify-result"></div>
+            </div>
+
+            <!-- Audio Element -->
+            <audio id="audio-player" src="flaming_star_elvis_presley.mp3" loop autoplay></audio>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
