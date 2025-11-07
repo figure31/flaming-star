@@ -93,7 +93,7 @@ const NETWORKS = {
     mainnet: {
         // Network settings
         chainId: 8453,
-        rpc: 'https://base-mainnet.g.alchemy.com/v2/jhjjeLy9B1rNe99oAQpx9', // ⚠️ ALLOWLIST FOR PRODUCTION DEPLOYMENT
+        rpc: 'https://mainnet.base.org', // Public Base RPC (no rate limits)
         name: 'Base Mainnet',
         explorer: 'https://basescan.org',
 
