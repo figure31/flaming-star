@@ -70,7 +70,7 @@ const NETWORKS = {
     testnet: {
         // Network settings
         chainId: 84532,
-        rpc: 'https://base-sepolia.g.alchemy.com/v2/jhjjeLy9B1rNe99oAQpx9', // ⚠️ ALLOWLIST FOR PRODUCTION DEPLOYMENT
+        rpc: 'https://base-sepolia.g.alchemy.com/v2/', // ⚠️ ALLOWLIST FOR PRODUCTION DEPLOYMENT
         name: 'Base Sepolia Testnet',
         explorer: 'https://sepolia.basescan.org',
 
@@ -81,8 +81,8 @@ const NETWORKS = {
         usdc: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
 
         // Subgraph endpoints - ⚠️ ALLOWLIST FOR PRODUCTION DEPLOYMENT
-        mintsSubgraph: 'https://subgraph.satsuma-prod.com/dd1da9748384/figure31--8074/flamingstar-testnet/api',
-        transfersSubgraph: 'https://subgraph.satsuma-prod.com/dd1da9748384/figure31--8074/flamingstar-transfers/api', // Transfers on mainnet
+        mintsSubgraph: 'https://subgraph.satsuma-prod.com/ed1c329c5b3c/figure31--8074/flamingstar-transfers/api',
+        transfersSubgraph: 'https://subgraph.satsuma-prod.com/ed1c329c5b3c/figure31--8074/flamingstar-transfers/api', // Transfers on mainnet
 
         // OpenSea base URL (testnet uses testnets.opensea.io)
         openseaBase: 'https://testnets.opensea.io/assets/base-sepolia',
@@ -104,8 +104,8 @@ const NETWORKS = {
         usdc: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // Official USDC on Base Mainnet
 
         // Subgraph endpoints - Base Mainnet
-        mintsSubgraph: 'https://subgraph.satsuma-prod.com/dd1da9748384/figure31--8074/flamingstar-mints/api',
-        transfersSubgraph: 'https://subgraph.satsuma-prod.com/dd1da9748384/figure31--8074/flamingstar-transfers/api',
+        mintsSubgraph: 'https://subgraph.satsuma-prod.com/ed1c329c5b3c/figure31--8074/flamingstar-transfers/api',
+        transfersSubgraph: 'https://subgraph.satsuma-prod.com/ed1c329c5b3c/figure31--8074/flamingstar-transfers/api',
 
         // OpenSea base URL (mainnet)
         openseaBase: 'https://opensea.io/assets/base',
@@ -814,114 +814,23 @@ function clearOldCache() {
  */
 async function initializeContractValues() {
     try {
-        // Cache key includes contract address AND version to invalidate old caches
-        const CONFIG_CACHE_VERSION = 'v5'; // Increment when cache structure changes (v5: Alchemy RPC + amplifier updates)
-        const cacheKey = `flamingstar_config_${CONFIG_CACHE_VERSION}_${FLAMINGSTAR_CONTRACT.toLowerCase()}`;
+        // Hardcoded mainnet constants (immutable on-chain values)
+        // This eliminates 9 RPC calls on page load for instant grid display
+        TOKEN_SYMBOL = 'FSTAR';
+        TOTAL_SUPPLY = 666666666666;
+        USDC_CONTRACT = CURRENT_NETWORK.usdc;
+        BMOON_CONTRACT = '0x9A2911782063285bb7d8a4d088a1FbB94bB8c6E8';
+        MINT_PRICE_USDC = '660000'; // 0.66 USDC in 6 decimals
+        MINT_PRICE_BMOON = '4444000000000000000000'; // 4,444 BMOON in 18 decimals
+        TOKENS_PER_LOT = 3333333;
 
-        // Clean up old config caches (different versions)
-        const allKeys = Object.keys(localStorage);
-        const oldConfigKeys = allKeys.filter(key =>
-            key.startsWith('flamingstar_config_') && key !== cacheKey
-        );
-        oldConfigKeys.forEach(key => {
-            localStorage.removeItem(key);
-        });
+        const maxLotsPerAddress = 3000; // MAX_LOTS_PER_ADDRESS (lifetime limit per address)
+        TOTAL_SQUARES = 100000; // MAX_LOTS (total grid size)
 
-        // Try to load from cache first
-        const cachedConfig = localStorage.getItem(cacheKey);
-        if (cachedConfig) {
-            try {
-                const config = JSON.parse(cachedConfig);
-
-                // Validate cache has all required fields with proper types
-                if (config.tokenSymbol && config.totalSupply && config.maxLots && typeof config.maxLots === 'number' && config.maxLots > 0) {
-                    USDC_CONTRACT = config.usdcContract;
-                    BMOON_CONTRACT = config.bmoonContract;
-                    MINT_PRICE_USDC = config.mintPrice;
-                    MINT_PRICE_BMOON = config.bmoonMintPrice;
-                    TOKENS_PER_LOT = config.tokensPerLot;
-                    MAX_MINT_LIMIT = config.maxMintLimit;
-                    MAX_USDC_APPROVAL = ethers.BigNumber.from(config.maxUsdcApproval);
-                    MAX_BMOON_APPROVAL = ethers.BigNumber.from(config.maxBmoonApproval);
-                    TOKEN_SYMBOL = config.tokenSymbol;
-                    TOTAL_SUPPLY = config.totalSupply;
-                    TOTAL_SQUARES = config.maxLots;
-
-                    return true;
-                }
-            } catch (e) {
-                console.warn('Cache invalid, reading from contract...');
-            }
-        }
-
-        // Create a read-only provider
-        const readProvider = new ethers.providers.JsonRpcProvider(BASE_RPC);
-        const flamingStarContract = new ethers.Contract(FLAMINGSTAR_CONTRACT, FLAMINGSTAR_ABI, readProvider);
-
-        // Read token symbol from contract
-        TOKEN_SYMBOL = await flamingStarContract.symbol();
-
-        // Read total supply from contract
-        const totalSupplyFromContract = await flamingStarContract.TOTAL_SUPPLY();
-        TOTAL_SUPPLY = Math.floor(parseFloat(ethers.utils.formatUnits(totalSupplyFromContract, 18)));
-
-        // Read USDC contract address (verify it matches)
-        const usdcFromContract = await flamingStarContract.usdc();
-        if (usdcFromContract.toLowerCase() !== USDC_CONTRACT.toLowerCase()) {
-            console.warn(`USDC address mismatch! Contract: ${usdcFromContract}, Expected: ${USDC_CONTRACT}`);
-        }
-
-        // Read BMOON contract address
-        const bmoonFromContract = await flamingStarContract.blueMoon();
-        BMOON_CONTRACT = bmoonFromContract;
-
-        // Update USDC contract link
-        updateUSDCLink();
-
-        // Read mint price from contract (returns value in 6 decimals for USDC)
-        const mintPriceFromContract = await flamingStarContract.mintPrice();
-        MINT_PRICE_USDC = mintPriceFromContract.toString();
-
-        // Read BMOON mint price (constant BMOON_PER_LOT = 4,444 BMOON in 18 decimals)
-        const bmoonPerLotFromContract = await flamingStarContract.BMOON_PER_LOT();
-        MINT_PRICE_BMOON = bmoonPerLotFromContract.toString();
-
-        // Read max lots per address from contract
-        const maxLotsFromContract = await flamingStarContract.MAX_LOTS_PER_ADDRESS();
-        const maxLotsPerAddress = maxLotsFromContract.toNumber();
-
-        // Read tokens per lot
-        const tokensPerLotFromContract = await flamingStarContract.TOKENS_PER_LOT();
-        TOKENS_PER_LOT = Math.floor(parseFloat(ethers.utils.formatUnits(tokensPerLotFromContract, 18)));
-
-        // Calculate max tokens (for display purposes)
+        // Calculate derived values
         MAX_MINT_LIMIT = TOKENS_PER_LOT * maxLotsPerAddress;
-
-        // Calculate max USDC approval needed
         MAX_USDC_APPROVAL = ethers.BigNumber.from(MINT_PRICE_USDC).mul(maxLotsPerAddress);
-
-        // Calculate max BMOON approval needed
         MAX_BMOON_APPROVAL = ethers.BigNumber.from(MINT_PRICE_BMOON).mul(maxLotsPerAddress);
-
-        // Read MAX_LOTS from contract (total number of lots in the artwork)
-        const totalMaxLotsFromContract = await flamingStarContract.MAX_LOTS();
-        TOTAL_SQUARES = totalMaxLotsFromContract.toNumber();
-
-        // Cache the configuration
-        const configToCache = {
-            tokenSymbol: TOKEN_SYMBOL,
-            totalSupply: TOTAL_SUPPLY,
-            maxLots: TOTAL_SQUARES,
-            usdcContract: USDC_CONTRACT,
-            bmoonContract: BMOON_CONTRACT,
-            mintPrice: MINT_PRICE_USDC,
-            bmoonMintPrice: MINT_PRICE_BMOON,
-            tokensPerLot: TOKENS_PER_LOT,
-            maxMintLimit: MAX_MINT_LIMIT,
-            maxUsdcApproval: MAX_USDC_APPROVAL.toString(),
-            maxBmoonApproval: MAX_BMOON_APPROVAL.toString()
-        };
-        localStorage.setItem(cacheKey, JSON.stringify(configToCache));
 
         return true;
     } catch (error) {
@@ -997,7 +906,56 @@ function updateMaxUSDCApproval() {
 // ============================================
 
 /**
+ * Load initial colors from subgraph (grid already drawn)
+ */
+async function loadInitialColors() {
+    // Step 1: Get global stats
+    const stats = await getGlobalStats();
+    const totalMinted = stats ? parseInt(stats.totalLotsMinted) : 0;
+
+    if (totalMinted === 0) {
+        globalStats = stats;
+        await updateCountersDisplay();
+        return;
+    }
+
+    // Step 2: Calculate initial batch size
+    const initialLoadSize = Math.min(INITIAL_LOAD_SIZE, totalMinted);
+
+    // Step 3: Load first batch (parallel queries)
+    const initialColors = await loadColorRange(0, initialLoadSize);
+
+    // Step 4: Store and render
+    allLoadedColors = initialColors;
+    lastKnownLotId = initialLoadSize - 1;
+
+    // Step 5: Set global stats
+    globalStats = stats;
+
+    // Step 6: Add initial colors to rendering queue for smooth appearance
+    addToRenderQueue(initialColors);
+
+    // Step 7: Animate counters from 0
+    animateCounters(true);
+
+    // Step 8: Cache initial load
+    cacheColorChunk(0, initialLoadSize, initialColors);
+
+    // Step 9: Start polling for new colors
+    startPollingForNewColors();
+
+    // Step 10: Start background loading AFTER initial rendering completes
+    // This ensures smooth progressive appearance without queue size changes during render
+    if (totalMinted > initialLoadSize) {
+        setTimeout(() => {
+            startBackgroundLoading(initialLoadSize, totalMinted);
+        }, 2500); // Start after initial render completes (2s + 500ms buffer)
+    }
+}
+
+/**
  * PHASE 1: Initial Grid Load (5k colors)
+ * @deprecated Use loadInitialColors() instead - grid is now drawn immediately on page load
  */
 async function initializeGrid() {
     // Step 1: Get global stats
@@ -1192,10 +1150,7 @@ async function initializeGridWithCache() {
         allLoadedColors = cachedColors;
         lastKnownLotId = Math.max(...cachedColors.map(c => parseInt(c.lotId)));
 
-        // Set up grid FIRST
-        calculateGrid();
-        drawGrid();
-        hideUnusedCells();
+        // Grid is already drawn in initializePage(), just load colors
 
         // Get current stats
         const stats = await getGlobalStats();
@@ -1228,8 +1183,8 @@ async function initializeGridWithCache() {
         }, 2500); // Wait for initial cache render to complete (2s + 500ms buffer)
 
     } else {
-        // No cache, do normal initialization
-        await initializeGrid();
+        // No cache, load colors from subgraph (grid is already drawn)
+        await loadInitialColors();
     }
 }
 
@@ -4070,7 +4025,7 @@ async function initializePage() {
 
     ctx = canvas.getContext('2d');
 
-    // Initialize contract values
+    // Initialize contract values (now instant with hardcoded values)
     const initialized = await initializeContractValues();
     if (!initialized) return;
 
@@ -4079,8 +4034,13 @@ async function initializePage() {
     updateMaxUSDCApproval();
     updateContractLinks();
 
-    // Initialize grid with cache support
-    await initializeGridWithCache();
+    // Draw empty grid IMMEDIATELY (instant visual feedback)
+    calculateGrid();
+    drawGrid();
+    hideUnusedCells();
+
+    // Load colors from subgraph in background (async, non-blocking)
+    initializeGridWithCache();
 }
 
 // Handle window resize
