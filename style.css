@@ -982,25 +982,21 @@ button:hover {
         margin-right: -10px;
     }
 
-    /* Add margin to top-right on mobile to prevent overlap with music player */
-    #top-right {
-        margin-right: 40px;
-    }
-
-    /* Reposition music player to top-right on mobile */
+    /* Position music player to the left of top-right buttons on mobile */
     #top-center {
-        position: absolute;
-        top: env(safe-area-inset-top, 0);
-        right: 10px;
+        position: relative;
         left: auto;
         transform: none;
-        height: 30px;
-        display: flex;
-        align-items: center;
+        margin-left: auto;
+        margin-right: 5px;
     }
 
     #music-player {
         justify-content: flex-end;
+    }
+
+    #top-right {
+        margin-right: 0;
     }
 
     /* Hide USDC, BMOON balance, wallet address, and highlight button on mobile to save space */

@@ -2241,21 +2241,21 @@ function drawGrid() {
     ctx.strokeStyle = GRID_COLOR;
     ctx.lineWidth = GRID_LINE_WIDTH;
 
-    // Draw vertical lines - use whole pixel coordinates for crisp lines
+    // Draw vertical lines - use floating point coordinates to match color cell positions
     for (let i = 0; i <= cols; i++) {
-        const x = Math.round(offsetX + i * cellSize) + 0.5; // +0.5 for crisp 1px lines
+        const x = offsetX + i * cellSize;
         ctx.beginPath();
-        ctx.moveTo(x, Math.round(offsetY));
-        ctx.lineTo(x, Math.round(offsetY + rows * cellSize));
+        ctx.moveTo(x, offsetY);
+        ctx.lineTo(x, offsetY + rows * cellSize);
         ctx.stroke();
     }
 
-    // Draw horizontal lines - use whole pixel coordinates for crisp lines
+    // Draw horizontal lines - use floating point coordinates to match color cell positions
     for (let i = 0; i <= rows; i++) {
-        const y = Math.round(offsetY + i * cellSize) + 0.5; // +0.5 for crisp 1px lines
+        const y = offsetY + i * cellSize;
         ctx.beginPath();
-        ctx.moveTo(Math.round(offsetX), y);
-        ctx.lineTo(Math.round(offsetX + cols * cellSize), y);
+        ctx.moveTo(offsetX, y);
+        ctx.lineTo(offsetX + cols * cellSize, y);
         ctx.stroke();
     }
 }
