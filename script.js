@@ -104,7 +104,7 @@ const NETWORKS = {
         usdc: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // Official USDC on Base Mainnet
 
         // Subgraph endpoints - Base Mainnet
-        mintsSubgraph: 'https://subgraph.satsuma-prod.com/ed1c329c5b3c/figure31--8074/flamingstar-mints/api',
+        mintsSubgraph: 'https://subgraph.satsuma-prod.com/dd1da9748384/figure31--8074/flamingstar-mints/api',
         transfersSubgraph: 'https://subgraph.satsuma-prod.com/ed1c329c5b3c/figure31--8074/flamingstar-transfers/api',
 
         // OpenSea base URL (mainnet)
@@ -143,6 +143,7 @@ const CACHE_KEY_PREFIX = 'fstar_colors_';
 // Strategy A Configuration (network-independent)
 const POLL_INTERVAL = 15000; // 15 seconds
 const TRANSFER_POLL_INTERVAL = 30000; // 30 seconds (slower than mints)
+const SLOW_POLL_INTERVAL = 60000; // 60 seconds - for expensive RPC calls (balances, USDC)
 const TRANSFER_GRID_SIZE = 3000; // Show last 3000 transfers
 const INITIAL_LOAD_SIZE = 5000; // Load first 5k colors immediately
 const BACKGROUND_CHUNK_SIZE = 10000; // Background loading chunk size
@@ -219,8 +220,9 @@ let TOKEN_SYMBOL = null;
 let TOTAL_SUPPLY = null;
 
 // Wallet state
-let provider = null;
+let provider = null; // MetaMask provider - ONLY for transactions requiring signatures
 let signer = null;
+let readProvider = null; // Public RPC provider - for ALL read operations
 let userAddress = null;
 let isWalletConnected = false;
 
@@ -228,8 +230,12 @@ let isWalletConnected = false;
 let allLoadedColors = []; // All colors loaded so far
 let lastKnownLotId = -1; // Track for incremental queries
 let pollingIntervalId = null;
+let slowPollingIntervalId = null; // For 60-second expensive RPC calls
 let isBackgroundLoading = false;
 let backgroundLoadingPaused = false;
+
+// Cached values for slow polling
+let cachedUsdcBalance = null;
 
 // Highlight feature state
 let cachedUserColors = null;
@@ -1133,6 +1139,52 @@ async function pollForNewColors() {
 }
 
 /**
+ * Slow polling for expensive RPC calls (every 60 seconds)
+ * Updates USDC balance and user wallet balances
+ */
+async function slowPoll() {
+    try {
+        // Fetch USDC balance of contract (for counter display)
+        if (readProvider) {
+            const usdcContract = new ethers.Contract(USDC_CONTRACT, ERC20_ABI, readProvider);
+            const usdcBalanceWei = await usdcContract.balanceOf(FLAMINGSTAR_CONTRACT);
+            cachedUsdcBalance = parseFloat(ethers.utils.formatUnits(usdcBalanceWei, 6));
+        }
+
+        // Update user wallet balances if connected
+        if (userAddress && isWalletConnected) {
+            await updateWalletUI();
+        }
+    } catch (error) {
+        console.error('Slow polling error:', error);
+    }
+}
+
+/**
+ * Start slow polling (60 seconds)
+ */
+function startSlowPolling() {
+    // Clear any existing interval
+    if (slowPollingIntervalId) {
+        clearInterval(slowPollingIntervalId);
+    }
+
+    // Poll immediately, then every 60 seconds
+    slowPoll();
+    slowPollingIntervalId = setInterval(slowPoll, SLOW_POLL_INTERVAL);
+}
+
+/**
+ * Stop slow polling
+ */
+function stopSlowPolling() {
+    if (slowPollingIntervalId) {
+        clearInterval(slowPollingIntervalId);
+        slowPollingIntervalId = null;
+    }
+}
+
+/**
  * Enhanced initialization with cache
  */
 async function initializeGridWithCache() {
@@ -1735,8 +1787,8 @@ async function refreshUserColors() {
         cachedUserColors = updatedColors;
         userLotIds = updatedColors.map(c => parseInt(c.lotId));
 
-        // Update wallet balances (smart: only when user actually minted)
-        await updateWalletUI();
+        // Don't update wallet balances here - causes too many RPC calls
+        // User can refresh page or reopen mint modal to see updated balances
 
         // Re-render if in highlight mode
         if (isHighlightMode) {
@@ -1841,6 +1893,9 @@ document.addEventListener('visibilitychange', () => {
         // Stop transfer polling
         stopPollingForTransfers();
 
+        // Stop slow polling
+        stopSlowPolling();
+
     } else {
         // Tab visible - resume polling based on current view
 
@@ -1853,6 +1908,9 @@ document.addEventListener('visibilitychange', () => {
             // Resume transfer polling
             startPollingForTransfers();
         }
+
+        // Resume slow polling
+        startSlowPolling();
     }
 });
 
@@ -1919,10 +1977,10 @@ async function switchToBaseNetwork() {
  * Get user's FSTAR token balance from contract
  */
 async function getFSTARBalance(address) {
-    if (!provider || !address) return '0';
+    if (!readProvider || !address) return '0';
 
     try {
-        const fstarContract = new ethers.Contract(FLAMINGSTAR_CONTRACT, ERC20_ABI, provider);
+        const fstarContract = new ethers.Contract(FLAMINGSTAR_CONTRACT, ERC20_ABI, readProvider);
         const balance = await fstarContract.balanceOf(address);
         return ethers.utils.formatUnits(balance, 18);
     } catch (error) {
@@ -1935,10 +1993,10 @@ async function getFSTARBalance(address) {
  * Get user's USDC balance from contract
  */
 async function getUSDCBalance(address) {
-    if (!provider || !address) return '0';
+    if (!readProvider || !address) return '0';
 
     try {
-        const usdcContract = new ethers.Contract(USDC_CONTRACT, ERC20_ABI, provider);
+        const usdcContract = new ethers.Contract(USDC_CONTRACT, ERC20_ABI, readProvider);
         const balance = await usdcContract.balanceOf(address);
         return ethers.utils.formatUnits(balance, 6);
     } catch (error) {
@@ -1951,10 +2009,10 @@ async function getUSDCBalance(address) {
  * Get user's BMOON balance from contract
  */
 async function getBMOONBalance(address) {
-    if (!provider || !address || !BMOON_CONTRACT) return '0';
+    if (!readProvider || !address || !BMOON_CONTRACT) return '0';
 
     try {
-        const bmoonContract = new ethers.Contract(BMOON_CONTRACT, ERC20_ABI, provider);
+        const bmoonContract = new ethers.Contract(BMOON_CONTRACT, ERC20_ABI, readProvider);
         const balance = await bmoonContract.balanceOf(address);
         return ethers.utils.formatUnits(balance, 18);
     } catch (error) {
@@ -2491,52 +2549,49 @@ async function updateCountersDisplay() {
     const valueCounter = document.getElementById('value-counter');
     const mintersCounter = document.getElementById('minters-counter');
 
-    if (!provider) {
-        // Create a read-only provider for displaying stats
-        try {
-            provider = new ethers.providers.JsonRpcProvider(CURRENT_NETWORK.rpc);
-        } catch (error) {
-            console.error('❌ Failed to create provider:', error);
-            progressCounter.textContent = 'loading...';
-            colorsCounter.textContent = 'loading...';
-            valueCounter.textContent = 'loading...';
-            mintersCounter.textContent = 'loading...';
-            return;
-        }
+    if (!readProvider) {
+        console.error('❌ Read provider not initialized');
+        progressCounter.textContent = 'loading...';
+        colorsCounter.textContent = 'loading...';
+        valueCounter.textContent = 'loading...';
+        mintersCounter.textContent = 'loading...';
+        return;
     }
 
     try {
-        const fstarContract = new ethers.Contract(FLAMINGSTAR_CONTRACT, FLAMINGSTAR_ABI, provider);
-        const usdcContract = new ethers.Contract(USDC_CONTRACT, ERC20_ABI, provider);
-
-        // Read all values from contract
-        const [publicAllocationWei, totalLots, maxLots, usdcBalanceWei] = await Promise.all([
-            fstarContract.PUBLIC_ALLOCATION(),
-            fstarContract.totalLots(),
-            fstarContract.MAX_LOTS(),
-            usdcContract.balanceOf(FLAMINGSTAR_CONTRACT)
-        ]);
+        // Use hardcoded values and subgraph data (NO RPC CALLS!)
+        const publicAllocation = TOTAL_SUPPLY; // Hardcoded: 666,666,666,666
+        const maxLots = TOTAL_SQUARES; // Hardcoded: 100,000
+        const totalLots = globalStats ? parseInt(globalStats.totalLotsMinted) : 0; // From subgraph
 
         // Calculate tokens minted: totalLots × TOKENS_PER_LOT (3,333,333)
         const tokensPerLot = TOKENS_PER_LOT || 3333333;
-        const tokensMintedNumber = totalLots.toNumber() * tokensPerLot;
+        const tokensMintedNumber = totalLots * tokensPerLot;
         const tokensMinted = tokensMintedNumber.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
         // Format public allocation
-        const publicAllocation = parseFloat(ethers.utils.formatEther(publicAllocationWei)).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        const publicAllocationFormatted = publicAllocation.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
         // Format lots
-        const lotsFormatted = totalLots.toNumber().toLocaleString();
-        const maxLotsFormatted = maxLots.toNumber().toLocaleString();
+        const lotsFormatted = totalLots.toLocaleString();
+        const maxLotsFormatted = maxLots.toLocaleString();
 
-        // Format USDC (actual contract balance, not calculated)
-        const usdcBalance = parseFloat(ethers.utils.formatUnits(usdcBalanceWei, 6)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        // Use cached USDC balance (updated every 60 seconds by slow polling)
+        // Fallback to calculation if not yet cached
+        let usdcBalance;
+        if (cachedUsdcBalance !== null) {
+            usdcBalance = cachedUsdcBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        } else {
+            // Fallback calculation until first slow poll completes
+            const calculatedUsdcBalance = totalLots * 0.66;
+            usdcBalance = calculatedUsdcBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
 
         // Get unique minters from subgraph
         const uniqueMinters = globalStats ? (parseInt(globalStats.uniqueMinters) || 0) : 0;
 
         // Display: [tokens]/[allocation] [lots]/[max] [usdc] USDC [minters]
-        progressCounter.textContent = `${tokensMinted}/${publicAllocation}`;
+        progressCounter.textContent = `${tokensMinted}/${publicAllocationFormatted}`;
         colorsCounter.textContent = `${lotsFormatted}/${maxLotsFormatted}`;
         valueCounter.style.display = 'block'; // Show value counter on mints view
         valueCounter.textContent = `${usdcBalance} USDC`;
@@ -2545,7 +2600,7 @@ async function updateCountersDisplay() {
         // Disable mint button if all lots are minted
         const mintBtn = document.getElementById('mint-btn');
         if (mintBtn) {
-            if (totalLots.toNumber() >= maxLots.toNumber()) {
+            if (totalLots >= maxLots) {
                 mintBtn.disabled = true;
                 mintBtn.style.opacity = '0.5';
                 mintBtn.style.cursor = 'not-allowed';
@@ -2602,31 +2657,27 @@ async function mintWithUSDC(amount) {
             }
         }
 
-        // Get contracts
-        const fstarContract = new ethers.Contract(FLAMINGSTAR_CONTRACT, FLAMINGSTAR_ABI, signer);
-        const usdcContract = new ethers.Contract(USDC_CONTRACT, ERC20_ABI, signer);
+        // Get contracts - separate read/write providers
+        const fstarContractWrite = new ethers.Contract(FLAMINGSTAR_CONTRACT, FLAMINGSTAR_ABI, signer);
+        const usdcContractRead = new ethers.Contract(USDC_CONTRACT, ERC20_ABI, readProvider);
+        const usdcContractWrite = new ethers.Contract(USDC_CONTRACT, ERC20_ABI, signer);
 
-        // Calculate total cost
+        // Calculate total cost for this transaction
         const totalCost = ethers.BigNumber.from(MINT_PRICE_USDC).mul(amount);
-        const totalCostFormatted = ethers.utils.formatUnits(totalCost, 6);
-
-        mintStatus.textContent = 'checking USDC balance...';
-
-        // Check USDC balance
-        const usdcBalance = await usdcContract.balanceOf(userAddress);
-        if (usdcBalance.lt(totalCost)) {
-            mintStatus.textContent = `insufficient USDC (need ${totalCostFormatted})`;
-            return;
-        }
 
         mintStatus.textContent = 'checking USDC allowance...';
 
-        // Check allowance
-        const allowance = await usdcContract.allowance(userAddress, FLAMINGSTAR_CONTRACT);
+        // Check current allowance
+        const allowance = await usdcContractRead.allowance(userAddress, FLAMINGSTAR_CONTRACT);
 
+        // If insufficient allowance, request approval for MAX amount (so user only approves once)
         if (allowance.lt(totalCost)) {
-            mintStatus.textContent = 'Approving USDC spending...';
-            const approveTx = await usdcContract.approve(FLAMINGSTAR_CONTRACT, totalCost);
+            const maxApprovalFormatted = ethers.utils.formatUnits(MAX_USDC_APPROVAL, 6);
+            mintStatus.textContent = `Approving ${maxApprovalFormatted} USDC (one-time, max needed)...`;
+
+            const approveTx = await usdcContractWrite.approve(FLAMINGSTAR_CONTRACT, MAX_USDC_APPROVAL, {
+                gasLimit: 150000 // Fixed generous limit to handle reentrancy guard
+            });
             mintStatus.textContent = 'Waiting for approval confirmation...';
             await approveTx.wait();
             mintStatus.textContent = 'USDC approved!';
@@ -2638,16 +2689,17 @@ async function mintWithUSDC(amount) {
 
         mintStatus.textContent = `minting ${tokenAmount} $${TOKEN_SYMBOL || 'FSTAR'}...`;
 
-        // Mint
-        const mintTx = await fstarContract.mintWithUSDC(amount);
+        // Mint with generous gas limit to handle reentrancy guard
+        const mintTx = await fstarContractWrite.mintWithUSDC(amount, {
+            gasLimit: 500000
+        });
         mintStatus.textContent = 'waiting for confirmation...';
         await mintTx.wait();
 
         mintStatus.textContent = `successfully minted ${tokenAmount} $${TOKEN_SYMBOL || 'FSTAR'}!`;
 
-        // Update wallet UI (will be updated by polling too, but do it now for immediate feedback)
-        await updateWalletUI();
-        await updateMintLimitDisplay();
+        // Don't update UI here - polling will handle it automatically within 15 seconds
+        // This avoids redundant RPC calls that cause rate limiting
 
         // Don't close modal - let user close it manually
 
@@ -2709,32 +2761,27 @@ async function mintWithBMOON(amount) {
             }
         }
 
-        // Get contracts
-        const fstarContract = new ethers.Contract(FLAMINGSTAR_CONTRACT, FLAMINGSTAR_ABI, signer);
-        const bmoonContract = new ethers.Contract(BMOON_CONTRACT, ERC20_ABI, signer);
+        // Get contracts - separate read/write providers
+        const fstarContractWrite = new ethers.Contract(FLAMINGSTAR_CONTRACT, FLAMINGSTAR_ABI, signer);
+        const bmoonContractRead = new ethers.Contract(BMOON_CONTRACT, ERC20_ABI, readProvider);
+        const bmoonContractWrite = new ethers.Contract(BMOON_CONTRACT, ERC20_ABI, signer);
 
-        // Calculate total cost in BMOON
+        // Calculate total cost for this transaction
         const totalCost = ethers.BigNumber.from(MINT_PRICE_BMOON).mul(amount);
-        const totalCostFormatted = ethers.utils.formatUnits(totalCost, 18);
-
-        mintStatus.textContent = 'checking $BMOON balance...';
-
-        // Check BMOON balance
-        const bmoonBalance = await bmoonContract.balanceOf(userAddress);
-        if (bmoonBalance.lt(totalCost)) {
-            const formattedCost = parseFloat(totalCostFormatted).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-            mintStatus.textContent = `insufficient $BMOON (need ${formattedCost})`;
-            return;
-        }
 
         mintStatus.textContent = 'checking $BMOON allowance...';
 
-        // Check allowance
-        const allowance = await bmoonContract.allowance(userAddress, FLAMINGSTAR_CONTRACT);
+        // Check current allowance
+        const allowance = await bmoonContractRead.allowance(userAddress, FLAMINGSTAR_CONTRACT);
 
+        // If insufficient allowance, request approval for MAX amount (so user only approves once)
         if (allowance.lt(totalCost)) {
-            mintStatus.textContent = 'Approving $BMOON spending...';
-            const approveTx = await bmoonContract.approve(FLAMINGSTAR_CONTRACT, totalCost);
+            const maxApprovalFormatted = parseFloat(ethers.utils.formatUnits(MAX_BMOON_APPROVAL, 18)).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+            mintStatus.textContent = `Approving ${maxApprovalFormatted} $BMOON (one-time, max needed)...`;
+
+            const approveTx = await bmoonContractWrite.approve(FLAMINGSTAR_CONTRACT, MAX_BMOON_APPROVAL, {
+                gasLimit: 150000 // Fixed generous limit to handle reentrancy guard
+            });
             mintStatus.textContent = 'Waiting for approval confirmation...';
             await approveTx.wait();
             mintStatus.textContent = '$BMOON approved!';
@@ -2746,16 +2793,17 @@ async function mintWithBMOON(amount) {
 
         mintStatus.textContent = `minting ${tokenAmount} $${TOKEN_SYMBOL || 'FSTAR'}...`;
 
-        // Mint with BMOON
-        const mintTx = await fstarContract.mintWithBMOON(amount);
+        // Mint with BMOON with generous gas limit to handle reentrancy guard
+        const mintTx = await fstarContractWrite.mintWithBMOON(amount, {
+            gasLimit: 500000
+        });
         mintStatus.textContent = 'waiting for confirmation...';
         await mintTx.wait();
 
         mintStatus.textContent = `successfully minted ${tokenAmount} $${TOKEN_SYMBOL || 'FSTAR'}!`;
 
-        // Update wallet UI (will be updated by polling too, but do it now for immediate feedback)
-        await updateWalletUI();
-        await updateMintLimitDisplay();
+        // Don't update UI here - polling will handle it automatically within 15 seconds
+        // This avoids redundant RPC calls that cause rate limiting
 
         // Don't close modal - let user close it manually
 
@@ -3423,8 +3471,8 @@ async function updateMintLimitDisplay() {
     }
 
     try {
-        // Query user's current lot count from contract
-        const fstarContract = new ethers.Contract(FLAMINGSTAR_CONTRACT, FLAMINGSTAR_ABI, provider);
+        // Query user's current lot count from contract (uses readProvider)
+        const fstarContract = new ethers.Contract(FLAMINGSTAR_CONTRACT, FLAMINGSTAR_ABI, readProvider);
         const lotsMinted = await fstarContract.lotsByAddress(userAddress);
 
         // Calculate total tokens minted (1 lot = 3,333,333 tokens)
@@ -4025,6 +4073,9 @@ async function initializePage() {
 
     ctx = canvas.getContext('2d');
 
+    // Initialize read-only provider for all read operations (never changes)
+    readProvider = new ethers.providers.JsonRpcProvider(BASE_RPC);
+
     // Initialize contract values (now instant with hardcoded values)
     const initialized = await initializeContractValues();
     if (!initialized) return;
@@ -4041,6 +4092,9 @@ async function initializePage() {
 
     // Load colors from subgraph in background (async, non-blocking)
     initializeGridWithCache();
+
+    // Start slow polling for USDC balance and user wallet balances (every 60 seconds)
+    startSlowPolling();
 }
 
 // Handle window resize
