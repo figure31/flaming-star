@@ -948,7 +948,14 @@ button:hover {
     .nft-traits,
     .nft-view-btn,
     .nft-artwork.unminted,
-    #play-pause-btn {
+    #play-pause-btn,
+    #amplify-modal h2,
+    #amplify-modal p,
+    #amplify-modal ul,
+    #amplify-status,
+    #amplify-result,
+    #amplify-buttons button,
+    #close-amplify {
         font-size: 10px;
     }
 
