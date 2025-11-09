@@ -3426,6 +3426,7 @@ if (showAllTransfersBtn) {
 // Audio player
 if (playPauseBtn && audioPlayer) {
     let isPlaying = false;
+    let hasStartedPlaying = false; // Track if music has ever started
 
     audioPlayer.volume = 0.5;
 
@@ -3446,10 +3447,30 @@ if (playPauseBtn && audioPlayer) {
     // Try autoplay
     audioPlayer.play().then(() => {
         isPlaying = true;
+        hasStartedPlaying = true;
         playPauseBtn.textContent = '◼';
     }).catch(() => {
         isPlaying = false;
         playPauseBtn.textContent = '▶';
+
+        // Autoplay blocked - set up one-time click handler to start music
+        const startMusicOnFirstClick = () => {
+            if (!hasStartedPlaying) {
+                audioPlayer.play().then(() => {
+                    isPlaying = true;
+                    hasStartedPlaying = true;
+                    playPauseBtn.textContent = '◼';
+                }).catch(e => {
+                    console.error('Audio play failed on first click:', e);
+                });
+
+                // Remove this listener after first click
+                document.removeEventListener('click', startMusicOnFirstClick);
+            }
+        };
+
+        // Add one-time click listener to entire document
+        document.addEventListener('click', startMusicOnFirstClick);
     });
 }
 
