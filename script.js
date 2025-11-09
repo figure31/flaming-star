@@ -104,7 +104,7 @@ const NETWORKS = {
         usdc: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // Official USDC on Base Mainnet
 
         // Subgraph endpoints - Base Mainnet
-        mintsSubgraph: 'https://subgraph.satsuma-prod.com/dd1da9748384/figure31--8074/flamingstar-mints/api',
+        mintsSubgraph: 'https://subgraph.satsuma-prod.com/ed1c329c5b3c/figure31--8074/flamingstar-mints/api',
         transfersSubgraph: 'https://subgraph.satsuma-prod.com/ed1c329c5b3c/figure31--8074/flamingstar-transfers/api',
 
         // OpenSea base URL (mainnet)
