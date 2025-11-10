@@ -905,10 +905,10 @@ function updateMaxUSDCApproval() {
 // ============================================
 
 /**
- * Load initial colors from subgraph (grid already drawn)
+ * Load initial colors from static JSON (grid already drawn)
  */
 async function loadInitialColors() {
-    // Step 1: Get global stats
+    // Step 1: Get global stats from static JSON
     const stats = await getGlobalStats();
     const totalMinted = stats ? parseInt(stats.totalLotsMinted) : 0;
 
@@ -918,38 +918,25 @@ async function loadInitialColors() {
         return;
     }
 
-    // Step 2: Calculate initial batch size
-    const initialLoadSize = Math.min(INITIAL_LOAD_SIZE, totalMinted);
+    // Step 2: Load ALL colors from static JSON (no batching needed - instant)
+    const allColors = await loadColorRange(0, totalMinted);
 
-    // Step 3: Load first batch (parallel queries)
-    const initialColors = await loadColorRange(0, initialLoadSize);
+    // Step 3: Store all colors
+    allLoadedColors = allColors;
+    lastKnownLotId = totalMinted - 1;
 
-    // Step 4: Store and render
-    allLoadedColors = initialColors;
-    lastKnownLotId = initialLoadSize - 1;
-
-    // Step 5: Set global stats
+    // Step 4: Set global stats
     globalStats = stats;
 
-    // Step 6: Add initial colors to rendering queue for smooth appearance
-    addToRenderQueue(initialColors);
+    // Step 5: Add all colors to rendering queue for smooth animated appearance
+    addToRenderQueue(allColors);
 
-    // Step 7: Animate counters from 0
+    // Step 6: Animate counters from 0
     animateCounters(true);
 
-    // Step 8: Cache initial load
-    cacheColorChunk(0, initialLoadSize, initialColors);
-
-    // Step 9: Start polling for new colors
-    startPollingForNewColors();
-
-    // Step 10: Start background loading AFTER initial rendering completes
-    // This ensures smooth progressive appearance without queue size changes during render
-    if (totalMinted > initialLoadSize) {
-        setTimeout(() => {
-            startBackgroundLoading(initialLoadSize, totalMinted);
-        }, 2500); // Start after initial render completes (2s + 500ms buffer)
-    }
+    // No caching needed - using static JSON
+    // No polling needed - minting is complete
+    // No background loading needed - all data already loaded from JSON
 }
 
 /**
@@ -1697,12 +1684,12 @@ function updateTransferCountersDisplay() {
     const valueCounter = document.getElementById('value-counter');
     const mintersCounter = document.getElementById('minters-counter');
 
-    // Hardcoded final mints stats (displayed on transfers page)
-    progressCounter.textContent = '333,333,300,000/666,666,666,666';
-    colorsCounter.textContent = '100,000/100,000';
-    valueCounter.textContent = '61,231 USDC';
-    valueCounter.style.display = 'block'; // Show USDC value
-    mintersCounter.textContent = '169 minters';
+    const stats = calculateTransferStats();
+
+    progressCounter.textContent = `${stats.totalTransfers} transfers`;
+    colorsCounter.textContent = `${stats.uniqueSenders} senders`;
+    valueCounter.style.display = 'none'; // Hide recipients stat completely
+    mintersCounter.textContent = `${stats.uniqueColors} colors`;
 }
 
 // ============================================
@@ -2517,56 +2504,19 @@ async function updateCountersDisplay() {
     }
 
     try {
-        // Use hardcoded values and subgraph data (NO RPC CALLS!)
-        const publicAllocation = TOTAL_SUPPLY; // Hardcoded: 666,666,666,666
-        const maxLots = TOTAL_SQUARES; // Hardcoded: 100,000
-        const totalLots = globalStats ? parseInt(globalStats.totalLotsMinted) : 0; // From subgraph
+        // Hardcoded final mints stats (minting complete)
+        progressCounter.textContent = '333,333,300,000/666,666,666,666';
+        colorsCounter.textContent = '100,000/100,000';
+        valueCounter.style.display = 'block';
+        valueCounter.textContent = '61,231 USDC';
+        mintersCounter.textContent = '169';
 
-        // Calculate tokens minted: totalLots × TOKENS_PER_LOT (3,333,333)
-        const tokensPerLot = TOKENS_PER_LOT || 3333333;
-        const tokensMintedNumber = totalLots * tokensPerLot;
-        const tokensMinted = tokensMintedNumber.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-
-        // Format public allocation
-        const publicAllocationFormatted = publicAllocation.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-
-        // Format lots
-        const lotsFormatted = totalLots.toLocaleString();
-        const maxLotsFormatted = maxLots.toLocaleString();
-
-        // Use cached USDC balance (updated every 60 seconds by slow polling)
-        // Fallback to calculation if not yet cached
-        let usdcBalance;
-        if (cachedUsdcBalance !== null) {
-            usdcBalance = cachedUsdcBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        } else {
-            // Fallback calculation until first slow poll completes
-            const calculatedUsdcBalance = totalLots * 0.66;
-            usdcBalance = calculatedUsdcBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        }
-
-        // Get unique minters from subgraph
-        const uniqueMinters = globalStats ? (parseInt(globalStats.uniqueMinters) || 0) : 0;
-
-        // Display: [tokens]/[allocation] [lots]/[max] [usdc] USDC [minters]
-        progressCounter.textContent = `${tokensMinted}/${publicAllocationFormatted}`;
-        colorsCounter.textContent = `${lotsFormatted}/${maxLotsFormatted}`;
-        valueCounter.style.display = 'block'; // Show value counter on mints view
-        valueCounter.textContent = `${usdcBalance} USDC`;
-        mintersCounter.textContent = `${uniqueMinters}`;
-
-        // Disable mint button if all lots are minted
+        // Disable mint button (all lots minted)
         const mintBtn = document.getElementById('mint-btn');
         if (mintBtn) {
-            if (totalLots >= maxLots) {
-                mintBtn.disabled = true;
-                mintBtn.style.opacity = '0.5';
-                mintBtn.style.cursor = 'not-allowed';
-            } else {
-                mintBtn.disabled = false;
-                mintBtn.style.opacity = '1';
-                mintBtn.style.cursor = 'pointer';
-            }
+            mintBtn.disabled = true;
+            mintBtn.style.opacity = '0.5';
+            mintBtn.style.cursor = 'not-allowed';
         }
 
     } catch (error) {
@@ -3239,6 +3189,9 @@ if (viewToggleBtn) {
         if (currentView === 'mints') {
             // Switch to transfers view
 
+            // CRITICAL: Stop all rendering animations before switching
+            stopAllAnimations();
+
             // Reset highlight mode and hide highlight button (not available on normal 3000 transfers)
             if (isHighlightMode) {
                 isHighlightMode = false;
@@ -3306,6 +3259,9 @@ if (viewToggleBtn) {
 
         } else {
             // Switch to mints view
+
+            // CRITICAL: Stop all rendering animations before switching
+            stopAllAnimations();
 
             // Reset highlight mode
             if (isHighlightMode) {
