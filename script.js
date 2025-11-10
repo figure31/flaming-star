@@ -105,7 +105,7 @@ const NETWORKS = {
 
         // Subgraph endpoints - Base Mainnet
         mintsSubgraph: 'https://subgraph.satsuma-prod.com/ed1c329c5b3c/figure31--8074/flamingstar-mints/api',
-        transfersSubgraph: 'https://subgraph.satsuma-prod.com/ed1c329c5b3c/figure31--8074/flamingstar-transfers/api',
+        transfersSubgraph: 'https://subgraph.satsuma-prod.com/dd1da9748384/figure31--8074/flamingstar-transfers/api',
 
         // OpenSea base URL (mainnet)
         openseaBase: 'https://opensea.io/assets/base',
@@ -940,98 +940,6 @@ async function loadInitialColors() {
 }
 
 /**
- * PHASE 1: Initial Grid Load (5k colors)
- * @deprecated Use loadInitialColors() instead - grid is now drawn immediately on page load
- */
-async function initializeGrid() {
-    // Step 1: Get global stats
-    const stats = await getGlobalStats();
-    const totalMinted = stats ? parseInt(stats.totalLotsMinted) : 0;
-
-    if (totalMinted === 0) {
-        globalStats = stats;
-        await updateCountersDisplay();
-        return;
-    }
-
-    // Step 2: Calculate initial batch size
-    const initialLoadSize = Math.min(INITIAL_LOAD_SIZE, totalMinted);
-
-    // Step 3: Load first batch (parallel queries)
-    const initialColors = await loadColorRange(0, initialLoadSize);
-
-    // Step 4: Store and render
-    allLoadedColors = initialColors;
-    lastKnownLotId = initialLoadSize - 1;
-
-    // Step 5: Set up grid FIRST
-    calculateGrid();
-    drawGrid();
-    hideUnusedCells();
-
-    // Step 6: Set global stats
-    globalStats = stats;
-
-    // Step 7: Add initial colors to rendering queue for smooth appearance
-    addToRenderQueue(initialColors);
-
-    // Step 8: Animate counters from 0
-    animateCounters(true);
-
-    // Step 9: Cache initial load
-    cacheColorChunk(0, initialLoadSize, initialColors);
-
-    // Step 10: Start polling for new colors
-    startPollingForNewColors();
-
-    // Step 11: Start background loading AFTER initial rendering completes
-    // This ensures smooth progressive appearance without queue size changes during render
-    if (totalMinted > initialLoadSize) {
-        setTimeout(() => {
-            startBackgroundLoading(initialLoadSize, totalMinted);
-        }, 2500); // Start after initial render completes (2s + 500ms buffer)
-    }
-}
-
-/**
- * PHASE 2: Background Loading (Remaining colors)
- */
-async function startBackgroundLoading(currentLoaded, totalMinted) {
-    if (isBackgroundLoading) return;
-
-    isBackgroundLoading = true;
-
-    for (let i = currentLoaded; i < totalMinted; i += BACKGROUND_CHUNK_SIZE) {
-        // Check if paused
-        while (backgroundLoadingPaused) {
-            await new Promise(resolve => setTimeout(resolve, 5000));
-        }
-
-        const endId = Math.min(i + BACKGROUND_CHUNK_SIZE, totalMinted);
-
-        // Load chunk
-        const chunk = await loadColorRange(i, endId);
-
-        // Merge with existing colors
-        allLoadedColors = [...allLoadedColors, ...chunk];
-        lastKnownLotId = Math.max(lastKnownLotId, ...chunk.map(c => parseInt(c.lotId)));
-
-        // Add to continuous rendering queue (smooth progressive appearance)
-        if (!isHighlightMode) {
-            addToRenderQueue(chunk);
-        }
-
-        // Cache this chunk
-        cacheColorChunk(i, endId, chunk);
-
-        // Wait before next chunk
-        await new Promise(resolve => setTimeout(resolve, BACKGROUND_DELAY));
-    }
-
-    isBackgroundLoading = false;
-}
-
-/**
  * PHASE 3: Incremental Polling (Only new colors)
  * DISABLED: Using static JSON data instead of live polling
  */
@@ -1579,6 +1487,12 @@ function processContinuousTransferRenderQueue() {
         : Math.min(3000 + (totalColors - 1000) * 2, 30000);
 
     function renderNextFrame() {
+        // CRITICAL: Stop rendering if we switched away from transfers view
+        if (!isRenderingTransfers || currentView !== 'transfers') {
+            isRenderingTransfers = false;
+            return;
+        }
+
         const elapsed = Date.now() - transferRenderStartTime;
         const progress = Math.min(elapsed / duration, 1);
 
@@ -2344,6 +2258,12 @@ function processContinuousRenderQueue() {
         : Math.min(MIN_RENDER_DURATION + (totalColors - 5000) * 0.6, 60000);
 
     function renderNextFrame() {
+        // CRITICAL: Stop rendering if we switched away from mints view
+        if (!isRendering || currentView !== 'mints') {
+            isRendering = false;
+            return;
+        }
+
         const elapsed = Date.now() - renderStartTime;
         const progress = Math.min(elapsed / duration, 1);
 
@@ -2465,6 +2385,10 @@ function redrawTransferCanvas() {
 function redrawCanvas(colorsToShow = null) {
     if (!ctx) return;
 
+    // Only redraw mints if we're on mints view
+    // Prevents mints colors appearing when switching to transfers
+    if (currentView !== 'mints') return;
+
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -2511,9 +2435,10 @@ async function updateCountersDisplay() {
         valueCounter.textContent = '61,231 USDC';
         mintersCounter.textContent = '169';
 
-        // Disable mint button (all lots minted)
+        // Disable mint button ONLY if we're on mints view (all lots minted)
+        // Don't disable if it's the amplify button on transfers view
         const mintBtn = document.getElementById('mint-btn');
-        if (mintBtn) {
+        if (mintBtn && currentView === 'mints') {
             mintBtn.disabled = true;
             mintBtn.style.opacity = '0.5';
             mintBtn.style.cursor = 'not-allowed';
@@ -3207,7 +3132,10 @@ if (viewToggleBtn) {
                 clearInterval(pollingIntervalId);
                 pollingIntervalId = null;
             }
+
+            // Stop any background loading
             backgroundLoadingPaused = true;
+            isBackgroundLoading = false;
 
             // Update button text
             viewToggleBtn.textContent = 'mints';
@@ -3224,6 +3152,10 @@ if (viewToggleBtn) {
             if (mintBtn) {
                 mintBtn.textContent = 'amplify';
                 mintBtn.setAttribute('data-mode', 'amplify');
+                // Re-enable button (it may have been disabled on mints view)
+                mintBtn.disabled = false;
+                mintBtn.style.opacity = '1';
+                mintBtn.style.cursor = 'pointer';
             }
 
             // Clear canvas
@@ -4034,8 +3966,12 @@ async function initializePage() {
 
 // Handle window resize
 window.addEventListener('resize', () => {
-    // redrawCanvas() calls calculateGrid() which sets canvas size properly with DPR
-    redrawCanvas();
+    // Redraw based on current view to prevent mints colors appearing on transfers view
+    if (currentView === 'mints') {
+        redrawCanvas();
+    } else if (currentView === 'transfers') {
+        redrawTransferCanvas();
+    }
 });
 
 // Start initialization when page loads
