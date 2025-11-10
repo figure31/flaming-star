@@ -234,6 +234,9 @@ let slowPollingIntervalId = null; // For 60-second expensive RPC calls
 let isBackgroundLoading = false;
 let backgroundLoadingPaused = false;
 
+// Static mints data (loaded from JSON file instead of subgraph)
+let staticMintsData = null;
+
 // Cached values for slow polling
 let cachedUsdcBalance = null;
 
@@ -298,23 +301,17 @@ async function querySubgraph(query, variables = {}) {
 
 /**
  * Get global statistics
+ * Now returns from static JSON instead of subgraph query
  */
 async function getGlobalStats() {
-    const query = `
-        query GetGlobalStats {
-            globalStats(id: "1") {
-                totalLotsMinted
-                latestLotId
-                totalFStarMinted
-                remainingLots
-                uniqueMinters
-                totalMintTransactions
-            }
-        }
-    `;
+    // Return from static mints data if loaded
+    if (staticMintsData && staticMintsData.globalStats) {
+        return staticMintsData.globalStats;
+    }
 
-    const data = await querySubgraph(query);
-    return data?.globalStats || null;
+    // Fallback: return null if JSON not loaded yet
+    console.warn('Static mints data not loaded yet');
+    return null;
 }
 
 /**
@@ -346,27 +343,18 @@ async function queryColorBatch(skip, limit) {
 
 /**
  * Query colors in a range (for initial and background loading)
+ * Now returns from static JSON instead of subgraph queries
  */
 async function loadColorRange(startId, endId) {
-    const colors = [];
-    const BATCH_SIZE = 1000;
-    const promises = [];
-
-    // Create array of promises for parallel queries
-    for (let skip = startId; skip < endId; skip += BATCH_SIZE) {
-        const limit = Math.min(BATCH_SIZE, endId - skip);
-        promises.push(queryColorBatch(skip, limit));
+    // Return from static mints data if loaded
+    if (staticMintsData && staticMintsData.colors) {
+        // Slice the array to get colors in the range [startId, endId)
+        return staticMintsData.colors.slice(startId, endId);
     }
 
-    // Execute all queries in parallel
-    const batches = await Promise.all(promises);
-
-    // Flatten results
-    batches.forEach(batch => {
-        colors.push(...batch);
-    });
-
-    return colors;
+    // Fallback: return empty array if JSON not loaded yet
+    console.warn('Static mints data not loaded yet');
+    return [];
 }
 
 /**
@@ -426,49 +414,21 @@ async function queryNewColors(afterLotId) {
 async function queryUserColors(address) {
     if (!address) return [];
 
-    const colors = [];
-    const BATCH_SIZE = 1000;
-    let skip = 0;
+    // Filter from static mints data if loaded
+    if (staticMintsData && staticMintsData.colors) {
+        const normalizedAddress = address.toLowerCase();
 
-    // User can have max 3,000 lots = max 3 queries
-    while (true) {
-        const query = `
-            query GetUserColors($minter: Bytes!, $skip: Int!, $limit: Int!) {
-                colors(
-                    where: { minter: $minter }
-                    orderBy: lotId
-                    orderDirection: asc
-                    first: $limit
-                    skip: $skip
-                ) {
-                    lotId
-                    color
-                    hue
-                    saturation
-                    lightness
-                    timestamp
-                }
-            }
-        `;
-
-        const data = await querySubgraph(query, {
-            minter: address.toLowerCase(),
-            skip,
-            limit: BATCH_SIZE
+        // Filter colors by minter address
+        const userColors = staticMintsData.colors.filter(color => {
+            return color.minter.toLowerCase() === normalizedAddress;
         });
 
-        const batch = data?.colors || [];
-
-        if (batch.length === 0) break;
-
-        colors.push(...batch);
-
-        if (batch.length < BATCH_SIZE) break;
-
-        skip += BATCH_SIZE;
+        return userColors;
     }
 
-    return colors;
+    // Fallback: return empty array if JSON not loaded yet
+    console.warn('Static mints data not loaded yet');
+    return [];
 }
 
 // ============================================
@@ -812,6 +772,39 @@ function clearOldCache() {
 }
 
 // ============================================
+// STATIC MINTS DATA LOADING
+// ============================================
+
+/**
+ * Load mints data from static JSON file instead of subgraph
+ * This eliminates all subgraph queries for the homepage mints grid
+ */
+async function loadMintsFromJSON() {
+    try {
+        console.log('Loading mints data from static JSON file...');
+
+        const response = await fetch('mints-data.json');
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch mints-data.json: ${response.status}`);
+        }
+
+        const data = await response.json();
+        staticMintsData = data;
+
+        console.log(`✓ Loaded ${data.totalColors} colors from static JSON`);
+        console.log(`  Latest lot ID: ${data.latestLotId}`);
+        console.log(`  Exported at: ${data.exportedAt}`);
+
+        return true;
+    } catch (error) {
+        console.error('Failed to load mints data from JSON:', error);
+        staticMintsData = null;
+        return false;
+    }
+}
+
+// ============================================
 // CONTRACT INITIALIZATION
 // ============================================
 
@@ -1053,16 +1046,13 @@ async function startBackgroundLoading(currentLoaded, totalMinted) {
 
 /**
  * PHASE 3: Incremental Polling (Only new colors)
+ * DISABLED: Using static JSON data instead of live polling
  */
 function startPollingForNewColors() {
-    // Clear any existing interval
-    if (pollingIntervalId) {
-        clearInterval(pollingIntervalId);
-    }
-
-    // Poll immediately, then every 15 seconds
-    pollForNewColors();
-    pollingIntervalId = setInterval(pollForNewColors, POLL_INTERVAL);
+    // Polling disabled - using static mints data from JSON file
+    // Users need to refresh page to see new mints
+    console.log('Mints polling disabled - using static JSON data');
+    return;
 }
 
 async function pollForNewColors() {
@@ -1185,7 +1175,8 @@ function stopSlowPolling() {
 }
 
 /**
- * Enhanced initialization with cache
+ * Enhanced initialization with static JSON data
+ * Replaced cache/subgraph logic with static JSON loading
  */
 async function initializeGridWithCache() {
     // Validate TOTAL_SQUARES is set
@@ -1195,49 +1186,16 @@ async function initializeGridWithCache() {
         return;
     }
 
-    // Try to load from cache first
-    const cachedColors = await loadFromCache();
-
-    if (cachedColors.length > 0) {
-        allLoadedColors = cachedColors;
-        lastKnownLotId = Math.max(...cachedColors.map(c => parseInt(c.lotId)));
-
-        // Grid is already drawn in initializePage(), just load colors
-
-        // Get current stats
-        const stats = await getGlobalStats();
-        globalStats = stats;
-
-        // Add cached colors to rendering queue for smooth continuous appearance
-        addToRenderQueue(cachedColors);
-
-        // Animate counters from 0
-        animateCounters(true);
-
-        // Start polling
-        startPollingForNewColors();
-
-        // Load any new colors since cache AFTER initial render completes
-        // This ensures smooth progressive appearance without queue interruption
-        setTimeout(async () => {
-            const currentLatest = stats ? parseInt(stats.latestLotId) : -1;
-
-            if (currentLatest > lastKnownLotId) {
-                const newColors = await queryNewColors(lastKnownLotId);
-                if (newColors.length > 0) {
-                    allLoadedColors = [...allLoadedColors, ...newColors];
-                    lastKnownLotId = currentLatest;
-
-                    // Add to continuous rendering queue
-                    addToRenderQueue(newColors);
-                }
-            }
-        }, 2500); // Wait for initial cache render to complete (2s + 500ms buffer)
-
-    } else {
-        // No cache, load colors from subgraph (grid is already drawn)
-        await loadInitialColors();
+    // Load mints data from static JSON file
+    const jsonLoaded = await loadMintsFromJSON();
+    if (!jsonLoaded) {
+        console.error('❌ Failed to load mints data from JSON file');
+        alert('Failed to load mints data. Please refresh the page.');
+        return;
     }
+
+    // Grid is already drawn in initializePage(), now load colors from JSON
+    await loadInitialColors();
 }
 
 // ============================================
@@ -1739,12 +1697,12 @@ function updateTransferCountersDisplay() {
     const valueCounter = document.getElementById('value-counter');
     const mintersCounter = document.getElementById('minters-counter');
 
-    const stats = calculateTransferStats();
-
-    progressCounter.textContent = `${stats.totalTransfers} transfers`;
-    colorsCounter.textContent = `${stats.uniqueSenders} senders`;
-    valueCounter.style.display = 'none'; // Hide recipients stat completely
-    mintersCounter.textContent = `${stats.uniqueColors} colors`;
+    // Hardcoded final mints stats (displayed on transfers page)
+    progressCounter.textContent = '333,333,300,000/666,666,666,666';
+    colorsCounter.textContent = '100,000/100,000';
+    valueCounter.textContent = '61,231 USDC';
+    valueCounter.style.display = 'block'; // Show USDC value
+    mintersCounter.textContent = '169 minters';
 }
 
 // ============================================
