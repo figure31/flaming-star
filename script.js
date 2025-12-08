@@ -105,7 +105,7 @@ const NETWORKS = {
 
         // Subgraph endpoints - Base Mainnet
         mintsSubgraph: 'https://subgraph.satsuma-prod.com/ed1c329c5b3c/figure31--8074/flamingstar-mints/api',
-        transfersSubgraph: 'https://subgraph.satsuma-prod.com/ed1c329c5b3c/figure31--8074/flamingstar-transfers/api',
+        transfersSubgraph: 'https://api.goldsky.com/api/public/project_cmh0i9kf7009ww2p2e9ft0ic8/subgraphs/flamingstar-transfers/1.0.0/gn',
 
         // OpenSea base URL (mainnet)
         openseaBase: 'https://opensea.io/assets/base',
@@ -438,51 +438,63 @@ async function queryUserColors(address) {
 /**
  * Query last 3000 transfer colors
  * Optimized for transfer grid display
+ * Fetches in 3 batches of 1000 due to Goldsky's limit
  */
 async function queryTransferColors() {
-    const query = `
-        query GetRecentTransfers {
-            transferColors(
-                first: 3000
-                orderBy: blockNumber
-                orderDirection: desc
-            ) {
-                id
-                blockNumber
-                timestamp
-                sender
-                recipient
-                color
-                hue
-                saturation
-                lightness
+    const allTransfers = [];
+
+    // Fetch 3 batches of 1000 to get the last 3000 transfers
+    for (let skip = 0; skip < 3000; skip += 1000) {
+        const query = `
+            query GetRecentTransfers($skip: Int!) {
+                transferColors(
+                    first: 1000
+                    skip: $skip
+                    orderBy: blockNumber
+                    orderDirection: desc
+                ) {
+                    id
+                    blockNumber
+                    timestamp
+                    sender
+                    recipient
+                    color
+                    hue
+                    saturation
+                    lightness
+                }
             }
+        `;
+
+        try {
+            const response = await fetch(TRANSFER_SUBGRAPH_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query, variables: { skip } })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (result.errors) {
+                console.error('Transfer subgraph errors:', result.errors);
+                continue;
+            }
+
+            const batch = result.data?.transferColors || [];
+            allTransfers.push(...batch);
+
+            // If we got less than 1000, there are no more transfers
+            if (batch.length < 1000) break;
+        } catch (error) {
+            console.error('Transfer query failed:', error);
         }
-    `;
-
-    try {
-        const response = await fetch(TRANSFER_SUBGRAPH_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query })
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-
-        if (result.errors) {
-            console.error('Transfer subgraph errors:', result.errors);
-            return [];
-        }
-
-        return result.data?.transferColors || [];
-    } catch (error) {
-        console.error('Transfer query failed:', error);
-        return [];
     }
+
+    return allTransfers;
 }
 
 /**
@@ -496,7 +508,7 @@ async function queryNewTransfers(afterBlock) {
                 where: { blockNumber_gt: $afterBlock }
                 orderBy: blockNumber
                 orderDirection: asc
-                first: 3000
+                first: 1000
             ) {
                 id
                 blockNumber
